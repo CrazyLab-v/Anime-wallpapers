@@ -1,0 +1,6 @@
+{
+  "name": "Anime Wallpapers",
+  "description": "A stunning, highly polished anime-styled wallpaper app that reads categories, albums, and illustrations from Chaos Labs, allowing you to easily set beautiful anime images as your home or lock screen background.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
