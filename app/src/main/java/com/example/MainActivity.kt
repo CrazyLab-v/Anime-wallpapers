@@ -96,6 +96,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.runtime.saveable.rememberSaveable
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
@@ -216,8 +219,8 @@ fun WallpaperAppContent(viewModel: WallpaperViewModel) {
             onBackClick = { viewModel.navigateBack() }
         )
 
-        // Horizontal Category Tabs (Sticky at top of Home and Albums lists)
-        if (currentScreen == "HOME" || currentScreen == "ALBUMS") {
+        // Horizontal Category Tabs (Sticky at top of Albums lists only)
+        if (currentScreen == "ALBUMS") {
             CategoryTabs(
                 categories = categories,
                 selectedCategory = selectedCategory,
@@ -248,7 +251,7 @@ fun WallpaperAppContent(viewModel: WallpaperViewModel) {
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            if (isLoading && wallpapers.isEmpty() && filteredAlbums.isEmpty()) {
+            if (isLoading && wallpapers.isEmpty() && filteredAlbums.isEmpty() && categories.isEmpty()) {
                 CircularProgressIndicator(
                     color = AnimeMagenta,
                     modifier = Modifier.size(50.dp)
@@ -262,23 +265,30 @@ fun WallpaperAppContent(viewModel: WallpaperViewModel) {
                     modifier = Modifier.fillMaxSize()
                 ) { screen ->
                     when (screen) {
-                        "HOME", "ALBUMS" -> {
+                        "HOME" -> {
+                            CategorySelectionScreen(
+                                categories = categories,
+                                onCategorySelect = { viewModel.selectCategory(it) }
+                            )
+                        }
+                        "ALBUMS" -> {
                             AlbumGridScreen(
                                 albums = filteredAlbums,
+                                selectedCategory = selectedCategory,
                                 onAlbumSelect = { viewModel.selectAlbum(it) }
                             )
                         }
                         "WALLPAPERS" -> {
                             WallpaperGridScreen(
                                 wallpapers = wallpapers,
-                                albumTitle = selectedAlbum?.title ?: "Галерея",
+                                albumTitle = selectedAlbum?.title ?: "Gallery",
                                 onWallpaperSelect = { viewModel.selectWallpaper(it) }
                             )
                         }
                         "FAVORITES" -> {
                             WallpaperGridScreen(
                                 wallpapers = favorites,
-                                albumTitle = "Избранные Обои",
+                                albumTitle = "Favorites",
                                 onWallpaperSelect = { viewModel.selectWallpaper(it) }
                             )
                         }
@@ -386,7 +396,7 @@ fun AppHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            if (currentScreen != "HOME" && currentScreen != "ALBUMS") {
+            if (currentScreen != "HOME") {
                 IconButton(
                     onClick = onBackClick,
                     colors = IconButtonDefaults.iconButtonColors(containerColor = AnimeSurface),
@@ -397,7 +407,7 @@ fun AppHeader(
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Назад",
+                        contentDescription = "Back",
                         tint = AnimeCyan
                     )
                 }
@@ -469,7 +479,7 @@ fun AppHeader(
             ) {
                 Icon(
                     imageVector = Icons.Default.Favorite,
-                    contentDescription = "Избранное",
+                    contentDescription = "Favorites",
                     tint = if (currentScreen == "FAVORITES") Color.White else AnimeMagenta
                 )
             }
@@ -477,55 +487,41 @@ fun AppHeader(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Real-time Search Box (Only on catalog listing pages: HOME, ALBUMS)
+        // Source website navigation button (Only on catalog listing pages: HOME, ALBUMS)
+        val context = LocalContext.current
         if (currentScreen == "HOME" || currentScreen == "ALBUMS") {
-            TextField(
-                value = searchQuery,
-                onValueChange = onSearchChange,
-                placeholder = {
-                    Text(
-                        "Поиск альбомов...",
-                        color = AnimeTextSecondary,
-                        fontSize = 13.sp
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = AnimeCyan,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { onSearchChange("") }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear",
-                                tint = AnimeTextSecondary
-                            )
-                        }
+            Button(
+                onClick = {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://chaoslabs.site/10/"))
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 },
-                singleLine = true,
+                colors = ButtonDefaults.buttonColors(containerColor = AnimeSurfaceVariant),
                 shape = RoundedCornerShape(16.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedTextColor = AnimeTextPrimary,
-                    unfocusedTextColor = AnimeTextPrimary,
-                    focusedContainerColor = AnimeSurfaceVariant,
-                    unfocusedContainerColor = AnimeSurface,
-                    disabledContainerColor = AnimeSurface,
-                    cursorColor = AnimeMagenta,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
+                border = BorderStroke(1.5.dp, AnimeCyan),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
-                    .border(1.dp, AnimeBorder, RoundedCornerShape(16.dp))
-                    .testTag("search_input")
-            )
+                    .testTag("source_site_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = null,
+                    tint = AnimeCyan,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "VISIT CHAOSLABS.SITE/10",
+                    color = AnimeTextPrimary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    letterSpacing = 1.sp
+                )
+            }
         }
     }
 }
@@ -591,25 +587,208 @@ fun CategoryChipItem(
 }
 
 @Composable
+fun CategorySelectionScreen(
+    categories: List<Category>,
+    onCategorySelect: (Category) -> Unit
+) {
+    if (categories.isEmpty()) {
+        EmptyStateView(
+            message = "Loading categories...",
+            iconStr = "✦"
+        )
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "SELECT CATEGORY",
+                color = AnimeCyan,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(categories) { cat ->
+                    CategorySelectionCard(cat = cat, onClick = { onCategorySelect(cat) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CategorySelectionCard(
+    cat: Category,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = AnimeSurface),
+        border = BorderStroke(1.5.dp, AnimeBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .testTag("category_selection_card_${cat.id}")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(AnimeMagenta.copy(alpha = 0.15f))
+                    .border(1.5.dp, AnimeMagenta, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = when(cat.name.lowercase()) {
+                        "girls", "girl" -> "✿"
+                        "art", "illustration" -> "🎨"
+                        "couples", "couple" -> "💑"
+                        "scenery", "nature" -> "🏔️"
+                        "gaming" -> "🎮"
+                        else -> "✦"
+                    },
+                    fontSize = 24.sp,
+                    color = AnimeCyan
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = cat.name.uppercase(),
+                color = AnimeTextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "VIEW ALBUMS",
+                color = AnimeCyan,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.sp
+            )
+        }
+    }
+}
+
+@Composable
 fun AlbumGridScreen(
     albums: List<Album>,
+    selectedCategory: Category?,
     onAlbumSelect: (Album) -> Unit
 ) {
     if (albums.isEmpty()) {
         EmptyStateView(
-            message = "Альбомы не найдены",
+            message = "No albums found",
             iconStr = "☉_☉"
         )
     } else {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(160.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        var currentPage by rememberSaveable(key = selectedCategory?.id) { mutableStateOf(0) }
+        val albumsPerPage = 6
+        val totalPages = kotlin.math.ceil(albums.size.toDouble() / albumsPerPage).toInt()
+        val safeCurrentPage = currentPage.coerceIn(0, maxOf(0, totalPages - 1))
+        
+        val startIndex = safeCurrentPage * albumsPerPage
+        val endIndex = minOf(startIndex + albumsPerPage, albums.size)
+        val pagedAlbums = albums.subList(startIndex, endIndex)
+
+        Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            items(albums) { album ->
-                AlbumCardItem(album = album, onClick = { onAlbumSelect(album) })
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(160.dp),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(pagedAlbums) { album ->
+                    AlbumCardItem(album = album, onClick = { onAlbumSelect(album) })
+                }
+            }
+
+            if (totalPages > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .background(AnimeSurface, RoundedCornerShape(16.dp))
+                        .border(1.dp, AnimeBorder, RoundedCornerShape(16.dp))
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { if (safeCurrentPage > 0) currentPage-- },
+                        enabled = safeCurrentPage > 0,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AnimeSurfaceVariant,
+                            disabledContainerColor = AnimeSurface.copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.border(
+                            1.dp,
+                            if (safeCurrentPage > 0) AnimeCyan else Color.Transparent,
+                            RoundedCornerShape(10.dp)
+                        )
+                    ) {
+                        Text(
+                            "PREV",
+                            color = if (safeCurrentPage > 0) AnimeTextPrimary else AnimeTextSecondary.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Text(
+                        text = "PAGE ${safeCurrentPage + 1} OF $totalPages",
+                        color = AnimeCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+
+                    Button(
+                        onClick = { if (safeCurrentPage < totalPages - 1) currentPage++ },
+                        enabled = safeCurrentPage < totalPages - 1,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AnimeSurfaceVariant,
+                            disabledContainerColor = AnimeSurface.copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.border(
+                            1.dp,
+                            if (safeCurrentPage < totalPages - 1) AnimeMagenta else Color.Transparent,
+                            RoundedCornerShape(10.dp)
+                        )
+                    ) {
+                        Text(
+                            "NEXT",
+                            color = if (safeCurrentPage < totalPages - 1) AnimeTextPrimary else AnimeTextSecondary.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
         }
     }
@@ -689,7 +868,7 @@ fun AlbumCardItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "✦ ОТКРЫТЬ ПОРТАЛ",
+                    text = "✦ OPEN PORTAL",
                     color = AnimeCyan,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -733,7 +912,7 @@ fun WallpaperGridScreen(
 
         if (wallpapers.isEmpty()) {
             EmptyStateView(
-                message = "В этом альбоме пока нет картинок",
+                message = "No wallpapers in this album yet",
                 iconStr = "❀"
             )
         } else {
@@ -913,7 +1092,7 @@ fun WallpaperPreviewOverlay(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Альбом: ${wallpaper.albumTitle}",
+                        text = "Album: ${wallpaper.albumTitle}",
                         color = AnimeCyan,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -939,7 +1118,7 @@ fun WallpaperPreviewOverlay(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Share,
-                                contentDescription = "Скачать",
+                                contentDescription = "Download",
                                 tint = AnimeCyan
                             )
                         }
@@ -952,7 +1131,7 @@ fun WallpaperPreviewOverlay(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(52.dp)
-                                .border(1.dp, AnimeCherryBlossom, RoundedCornerShape(16.dp))
+                                .border(1.3.dp, AnimeCherryBlossom, RoundedCornerShape(16.dp))
                                 .testTag("preview_apply_button")
                         ) {
                             Icon(
@@ -963,7 +1142,7 @@ fun WallpaperPreviewOverlay(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "УСТАНОВИТЬ ОБОИ",
+                                text = "SET WALLPAPER",
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp,
                                 color = Color.White,
@@ -971,6 +1150,9 @@ fun WallpaperPreviewOverlay(
                             )
                         }
                     }
+                    
+                    // Added spacer to lift buttons higher as requested by user
+                    Spacer(modifier = Modifier.height(28.dp))
                 }
 
                 // Sub-Overlay: Wallpaper Target Selection Dialog menu
@@ -992,14 +1174,14 @@ fun WallpaperPreviewOverlay(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = "КУДА УСТАНОВИТЬ?",
+                                    text = "CHOOSE DESTINATION",
                                     color = AnimeTextPrimary,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = 1.sp
-                                )
+                               )
                                 Text(
-                                    text = "Выберите целевой экран на вашем телефоне",
+                                    text = "Select where you want to apply this wallpaper",
                                     color = AnimeTextSecondary,
                                     fontSize = 11.sp,
                                     textAlign = TextAlign.Center
@@ -1018,7 +1200,7 @@ fun WallpaperPreviewOverlay(
                                         .height(48.dp)
                                         .testTag("apply_home_button")
                                 ) {
-                                    Text("Рабочий стол", color = AnimeTextPrimary, fontWeight = FontWeight.Bold)
+                                    Text("Home Screen", color = AnimeTextPrimary, fontWeight = FontWeight.Bold)
                                 }
 
                                 Button(
@@ -1033,7 +1215,7 @@ fun WallpaperPreviewOverlay(
                                         .height(48.dp)
                                         .testTag("apply_lock_button")
                                 ) {
-                                    Text("Экран блокировки", color = AnimeTextPrimary, fontWeight = FontWeight.Bold)
+                                    Text("Lock Screen", color = AnimeTextPrimary, fontWeight = FontWeight.Bold)
                                 }
 
                                 Button(
@@ -1048,7 +1230,7 @@ fun WallpaperPreviewOverlay(
                                         .height(48.dp)
                                         .testTag("apply_both_button")
                                 ) {
-                                    Text("Установить везде", color = Color.White, fontWeight = FontWeight.Black)
+                                    Text("Set on Both Screens", color = Color.White, fontWeight = FontWeight.Black)
                                 }
 
                                 Button(
@@ -1056,7 +1238,7 @@ fun WallpaperPreviewOverlay(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Отмена", color = AnimeTextSecondary)
+                                    Text("Cancel", color = AnimeTextSecondary)
                                 }
                             }
                         }

@@ -90,18 +90,13 @@ class WallpaperViewModel(application: Application) : AndroidViewModel(applicatio
                 _categories.value = cats
                 _featuredAlbums.value = featured
                 
-                // Auto-select the first category instead of showing "All" (HOME screen)
-                val firstCat = cats.firstOrNull()
-                if (firstCat != null) {
-                    selectCategory(firstCat)
-                } else {
-                    _albums.value = featured
-                    _selectedCategory.value = null
-                    _currentScreen.value = "HOME"
-                }
+                // Initialize strictly on HOME screen displaying only categories
+                _albums.value = featured
+                _selectedCategory.value = null
+                _currentScreen.value = "HOME"
             } catch (e: Exception) {
                 e.printStackTrace()
-                _error.value = "Ошибка загрузки: проверьте интернет-соединение"
+                _error.value = "Loading failed: please check your internet connection"
             } finally {
                 _isLoading.value = false
             }
@@ -132,7 +127,7 @@ class WallpaperViewModel(application: Application) : AndroidViewModel(applicatio
                 _albums.value = catAlbums
             } catch (e: Exception) {
                 e.printStackTrace()
-                _error.value = "Ошибка загрузки альбомов этой категории"
+                _error.value = "Failed to load albums for this category"
             } finally {
                 _isLoading.value = false
             }
@@ -169,7 +164,7 @@ class WallpaperViewModel(application: Application) : AndroidViewModel(applicatio
                 _wallpapers.value = synced
             } catch (e: Exception) {
                 e.printStackTrace()
-                _error.value = "Ошибка загрузки картинок из этого альбома"
+                _error.value = "Failed to load wallpapers from this album"
             } finally {
                 _isLoading.value = false
             }
@@ -195,14 +190,15 @@ class WallpaperViewModel(application: Application) : AndroidViewModel(applicatio
         _error.value = null
         when (_currentScreen.value) {
             "FAVORITES" -> {
-                _currentScreen.value = "ALBUMS"
+                _currentScreen.value = "HOME"
             }
             "WALLPAPERS" -> {
                 _selectedAlbum.value = null
                 _currentScreen.value = "ALBUMS"
             }
             "ALBUMS" -> {
-                // Already at root category collection listing, nothing to go back to
+                _selectedCategory.value = null
+                _currentScreen.value = "HOME"
             }
         }
     }
@@ -212,22 +208,22 @@ class WallpaperViewModel(application: Application) : AndroidViewModel(applicatio
      */
     fun applyWallpaper(context: Context, wallpaper: Wallpaper, target: WallpaperTarget) {
         viewModelScope.launch {
-            _operationStatus.value = OperationStatus.Loading("Применение обоев...")
+            _operationStatus.value = OperationStatus.Loading("Applying wallpaper...")
             try {
                 val bitmap = WallpaperHelper.downloadBitmap(wallpaper.url)
                 if (bitmap != null) {
                     val success = WallpaperHelper.setAsWallpaper(context, bitmap, target)
                     if (success) {
-                        _operationStatus.value = OperationStatus.Success("Обои успешно установлены!")
+                        _operationStatus.value = OperationStatus.Success("Wallpaper set successfully!")
                     } else {
-                        _operationStatus.value = OperationStatus.Error("Не удалось установить обои")
+                        _operationStatus.value = OperationStatus.Error("Failed to set wallpaper")
                     }
                 } else {
-                    _operationStatus.value = OperationStatus.Error("Ошибка скачивания изображения")
+                    _operationStatus.value = OperationStatus.Error("Failed to download image")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _operationStatus.value = OperationStatus.Error("Ошибка: ${e.localizedMessage}")
+                _operationStatus.value = OperationStatus.Error("Error: ${e.localizedMessage}")
             }
         }
     }
@@ -237,22 +233,22 @@ class WallpaperViewModel(application: Application) : AndroidViewModel(applicatio
      */
     fun downloadToGallery(context: Context, wallpaper: Wallpaper) {
         viewModelScope.launch {
-            _operationStatus.value = OperationStatus.Loading("Сохранение в галерею...")
+            _operationStatus.value = OperationStatus.Loading("Saving to gallery...")
             try {
                 val bitmap = WallpaperHelper.downloadBitmap(wallpaper.url)
                 if (bitmap != null) {
                     val success = WallpaperHelper.saveToGallery(context, bitmap, wallpaper.title)
                     if (success) {
-                        _operationStatus.value = OperationStatus.Success("Сохранено в галерею в папку Pictures/AnimeWallpapers!")
+                        _operationStatus.value = OperationStatus.Success("Saved to gallery under Pictures/AnimeWallpapers!")
                     } else {
-                        _operationStatus.value = OperationStatus.Error("Не удалось сохранить изображение")
+                        _operationStatus.value = OperationStatus.Error("Failed to save image")
                     }
                 } else {
-                    _operationStatus.value = OperationStatus.Error("Ошибка скачивания изображения")
+                    _operationStatus.value = OperationStatus.Error("Failed to download image")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _operationStatus.value = OperationStatus.Error("Ошибка: ${e.localizedMessage}")
+                _operationStatus.value = OperationStatus.Error("Error: ${e.localizedMessage}")
             }
         }
     }
